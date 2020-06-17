@@ -1,0 +1,280 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="rbot"> <!--rbot = rescue bot-->
+
+    <!-- Include xacro files-->
+    <xacro:include filename="$(find rescue_movil)/urdf/rbot_materials.xacro"/>
+    <xacro:include filename="$(find rescue_movil)/urdf/rbot_inertials.xacro"/>
+    <xacro:include filename="$(find rescue_movil)/urdf/rbot_laser.xacro"/>
+
+    <!-- Robot properties-->
+    <xacro:property name="wheel_width" value="0.060" />
+    <xacro:property name="wheel_radius" value="0.060" />
+    <xacro:property name="body_box_length" value="0.380" />
+    <xacro:property name="body_box_width" value="0.120" />
+    <xacro:property name="body_box_depth" value="0.11" />
+    <xacro:property name="body_box_mass" value="1.2" />
+
+    <!-- Gazebo plugins -->
+    <gazebo>
+        <!-- ROS Control 
+            Wheel joints controlled by ackermann_drive_controller:
+                front_left_wheel_joint, front_right_wheel_joint,
+                mid_left_wheel_joint, mid_right_wheel_joint,
+                back_left_wheel_joint, back_right_wheel_joint
+        -->
+        <plugin name="gazebo_ros_control" filename="libgazebo_ros_control.so">
+            <robotNamespace>/</robotNamespace>
+        </plugin>
+    </gazebo>
+
+    <!-- Model-->
+    <link name="base_link">
+        <visual>
+            <origin rpy="0 0 0" xyz="0 0 0" />
+            <geometry>
+                <box size="0.01 0.01 0.01"/>
+            </geometry>
+            <material name="orange" />
+        </visual>
+    </link>
+
+    <gazebo reference="base_link">
+        <material>Gazebo/Orange</material>
+    </gazebo>
+
+    <!--Body-->
+    <link name="body_box_link">
+        <visual>
+            <origin rpy="0 0 0" xyz="0 0 0" />
+            <geometry>
+                <mesh filename="package://rescue_movil/meshes/chasis.dae" />
+                <!-- <box size="${body_box_length} ${body_box_width} ${body_box_depth}"/> -->
+            </geometry>
+            <material name="dark_gray" />
+        </visual>
+        <collision>
+            <origin rpy="0 0 0" xyz="0 0 0" />
+            <geometry>
+                <box size="${body_box_length} ${body_box_width} ${body_box_depth}"/>
+            </geometry>
+        </collision>
+        <xacro:solid_cuboid_inertial 
+            rpy="0 0 0" xyz="0 0 0"
+            mass="${body_box_mass}"
+            x="${body_box_length}" y="${body_box_width}" z="${body_box_depth}" />
+    </link>
+
+    <gazebo reference="body_box_link">
+        <material>Gazebo/DarkGray</material>
+    </gazebo>
+
+    <joint name="body_box_joint" type="fixed">
+        <origin rpy="0 0 0" xyz="0 0 0"/>
+        <parent link="base_link"/>
+        <child link="body_box_link"/>
+    </joint>
+
+    <!-- OTHERS-->  
+    <!-- Electronic board-->
+    <link name="elec_link">
+        <visual>
+            <origin rpy="0 0 0" xyz="0 0 0"/>
+            <geometry>
+                <box size="0.1 0.05 0.02"/>
+            </geometry>
+            <material name="green"/>
+        </visual>
+    </link>
+
+    <gazebo reference="elec_link">
+        <material>Gazebo/Green</material>
+    </gazebo>
+
+    <joint name="elec_joint" type="fixed">
+        <origin rpy="0 0 0" xyz="0 0 0.065"/>
+        <parent link="body_box_link"/>
+        <child link="elec_link"/>
+    </joint>
+
+    <!-- Base lidar-->
+    <link name="base_lidar_link">
+        <visual>
+            <origin rpy="0 0 0" xyz="0 0 0"/>
+            <geometry>
+                <box size="0.1 0.08 0.05"/>
+            </geometry>
+            <material name="dark_gray"/>
+        </visual>
+    </link>
+
+    <gazebo reference="base_lidar_link">
+        <material>Gazebo/DarkGray</material>
+    </gazebo>
+
+    <joint name="base_lidar_joint" type="fixed">
+        <origin rpy="0 0 0" xyz="-0.14 0 0.08"/>
+        <parent link="body_box_link"/>
+        <child link="base_lidar_link"/>
+    </joint>
+
+    <!-- Base stereo-->
+    <link name="base_stereo_link">
+        <visual>
+            <origin rpy="0 0 0" xyz="0 0 0"/>
+            <geometry>
+                <cylinder length="0.02" radius="0.005"/>
+            </geometry>
+            <material name="dark_gray"/>
+        </visual>
+    </link>
+
+    <gazebo reference="base_stereo_link">
+        <material>Gazebo/DarkGray</material>
+    </gazebo>
+
+    <joint name="base_stereo_joint" type="fixed">
+        <origin rpy="0 0 0" xyz="0.14 0 0.065"/>
+        <parent link="body_box_link"/>
+        <child link="base_stereo_link"/>
+    </joint>
+
+    <!-- Stereo Zed-->
+    <link name="stereo_link">
+        <visual>
+            <origin rpy="0 0 0" xyz="0 0 0"/>
+            <geometry>
+                <mesh filename="package://rescue_movil/meshes/sensors/zed.dae" /> <!-- 0.03 height-->
+            </geometry>
+            <material name="dark_gray"/>
+        </visual>
+    </link>
+
+    <gazebo reference="elec_link">
+        <material>Gazebo/DarkGray</material>
+    </gazebo>
+
+    <joint name="stereo_joint" type="fixed">
+        <origin rpy="0 0 0" xyz="0 0 0.025"/>
+        <parent link="base_stereo_link"/>
+        <child link="stereo_link"/>
+    </joint>
+
+    <!-- WHEELS-->
+
+    <!-- Front wheels-->
+    <xacro:macro name="wheel_link" params="lon_label lat_label reflect">
+        <link name="${lon_label}_${lat_label}_wheel_link">
+            <visual>
+                <origin rpy="${-reflect*math_pi_over_2} 0 0" xyz="0 0 0" />
+                <geometry>
+                    <mesh filename="package://rescue_movil/meshes/wheel.dae"/>
+                </geometry>
+                <material name="dark_gray" />
+            </visual>
+            <collision>
+                <origin rpy="${reflect * math_pi_over_2} 0 0" xyz="0 0 0" />
+                <geometry>
+                    <cylinder length="${wheel_width}" radius="${wheel_radius}" />
+                </geometry>
+            </collision>
+            <xacro:solid_cylinder_inertial
+                rpy="0 0 0" xyz="0 0 0"
+                mass="0.25"
+                radius="${wheel_radius}" length="${wheel_width}" />
+        </link>    
+
+        <gazebo reference="${lon_label}_${lat_label}_wheel_link">
+            <material>Gazebo/DarkGray</material>
+        </gazebo>
+    </xacro:macro>
+    <xacro:wheel_link lon_label="front" lat_label="left" reflect="1"/>
+    <xacro:wheel_link lon_label="front" lat_label="right" reflect="-1"/>
+
+    <xacro:macro name="front_wheel_joint" params="lat_label reflect">
+        <joint name="front_${lat_label}_wheel_joint" type="continuous">
+            <origin rpy="0 0 0" xyz="0.150 ${reflect*0.0885} 0"/>
+            <axis xyz="0 1 0" />
+            <parent link="body_box_link" />
+            <child link="front_${lat_label}_wheel_link" />
+        </joint>
+
+        <transmission name="$front_${lat_label}_wheel_transmission" >
+            <type>transmission_interface/SimpleTransmission</type>
+            <actuator name="$front_${lat_label}_wheel_actuator">
+                <mechanicalReduction>1</mechanicalReduction>
+            </actuator>
+            <joint name="$front_${lat_label}_wheel_joint">
+                <hardwareInterface>hardware_interface/VelocityJointInterface</hardwareInterface>
+            </joint>
+        </transmission>
+
+        <gazebo reference="front_${lat_label}_wheel_joint">
+            <provideFeedback>true</provideFeedback>
+        </gazebo>
+    </xacro:macro>
+    <xacro:front_wheel_joint lat_label="left" reflect="1"/>
+    <xacro:front_wheel_joint lat_label="right" reflect="-1"/>
+
+    <!-- Mid wheel-->
+    <xacro:wheel_link lon_label="mid" lat_label="left" reflect="1"/>
+    <xacro:wheel_link lon_label="mid" lat_label="right" reflect="-1"/>
+
+    <xacro:macro name="mid_wheel_joint" params="lat_label reflect">
+        <joint name="mid_${lat_label}_wheel_joint" type="continuous">
+            <origin rpy="0 0 0" xyz="0 ${reflect*0.0885} 0"/>
+            <axis xyz="0 1 0" />
+            <parent link="body_box_link" />
+            <child link="mid_${lat_label}_wheel_link" />
+        </joint>
+
+        <transmission name="mid_${lat_label}_wheel_transmission" >
+            <type>transmission_interface/SimpleTransmission</type>
+            <actuator name="mid_${lat_label}_wheel_actuator">
+                <mechanicalReduction>1</mechanicalReduction>
+            </actuator>
+            <joint name="mid_${lat_label}_wheel_joint">
+                <hardwareInterface>hardware_interface/VelocityJointInterface</hardwareInterface>
+            </joint>
+        </transmission>
+
+        <gazebo reference="mid_${lat_label}_wheel_joint">
+            <provideFeedback>true</provideFeedback>
+        </gazebo>
+    </xacro:macro>
+    <xacro:mid_wheel_joint lat_label="left" reflect="1"/>
+    <xacro:mid_wheel_joint lat_label="right" reflect="-1"/>
+
+    <!-- Back wheel-->
+    <xacro:wheel_link lon_label="back" lat_label="left" reflect="1"/>
+    <xacro:wheel_link lon_label="back" lat_label="right" reflect="-1"/>
+
+    <xacro:macro name="back_wheel_joint" params="lat_label reflect">
+        <joint name="back_${lat_label}_wheel_joint" type="continuous">
+            <origin rpy="0 0 0" xyz="-0.150 ${reflect*0.0885} 0"/>
+            <axis xyz="0 1 0" />
+            <parent link="body_box_link" />
+            <child link="back_${lat_label}_wheel_link" />
+        </joint>
+
+        <transmission name="back_${lat_label}_wheel_transmission" >
+            <type>transmission_interface/SimpleTransmission</type>
+            <actuator name="back_${lat_label}_wheel_actuator">
+                <mechanicalReduction>1</mechanicalReduction>
+            </actuator>
+            <joint name="back_${lat_label}_wheel_joint">
+                <hardwareInterface>hardware_interface/VelocityJointInterface</hardwareInterface>
+            </joint>
+        </transmission>
+
+        <gazebo reference="back_${lat_label}_wheel_joint">
+            <provideFeedback>true</provideFeedback>
+        </gazebo>
+    </xacro:macro>
+    <xacro:back_wheel_joint lat_label="left" reflect="1"/>
+    <xacro:back_wheel_joint lat_label="right" reflect="-1"/>
+
+    <!-- Laser Scan Sensor-->
+    <xacro:laser_link/>
+    <xacro:laser_joint x="-0.15" y="0" z="0.105" /> 
+
+</robot>
